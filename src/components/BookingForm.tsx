@@ -70,8 +70,23 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   });
 
   const handleSubmit = async (data: BookingFormData) => {
+    if (selectedSlots.length === 0) {
+      form.setError("startTime", { message: "Please select at least one time slot" });
+      form.setError("endTime", { message: "Please select at least one time slot" });
+      return;
+    }
+
     setIsSubmitting(true);
-    await onSubmit(data);
+
+    // Prepare data with selected slots
+    const bookingData: BookingFormData = {
+      ...data,
+      startTime: selectedSlots.map((s) => s.start).join(","),
+      endTime: selectedSlots.map((s) => s.end).join(","),
+    };
+
+    await onSubmit(bookingData);
+
     setIsSubmitting(false);
     form.reset();
     setSelectedSlots([]);
@@ -81,20 +96,17 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   const dateStr = format(date, "yyyy-MM-dd");
 
   const isSlotOccupied = (startTime: string, endTime: string) => {
-    // Slot is occupied if already booked OR already selected in this form
-    return (
-      bookings.some((booking) => {
-        if (booking.date !== dateStr) return false;
-        const bookingStart = booking.startTime;
-        const bookingEnd = booking.endTime;
-        return (
-          (startTime >= bookingStart && startTime < bookingEnd) ||
-          (endTime > bookingStart && endTime <= bookingEnd) ||
-          (startTime <= bookingStart && endTime >= bookingEnd)
-        );
-      }) ||
-      selectedSlots.some((s) => s.start === startTime && s.end === endTime)
-    );
+    // Only check already booked slots
+    return bookings.some((booking) => {
+      if (booking.date !== dateStr) return false;
+      const bookingStart = booking.startTime;
+      const bookingEnd = booking.endTime;
+      return (
+        (startTime >= bookingStart && startTime < bookingEnd) ||
+        (endTime > bookingStart && endTime <= bookingEnd) ||
+        (startTime <= bookingStart && endTime >= bookingEnd)
+      );
+    });
   };
 
   const handleTimeSlotSelect = (slot: { start: string; end: string }) => {
@@ -103,31 +115,11 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
     );
 
     if (exists) {
-      // Deselect slot if already selected
-      const updated = selectedSlots.filter(
-        (s) => s.start !== slot.start || s.end !== slot.end
-      );
-      setSelectedSlots(updated);
-      form.setValue(
-        "startTime",
-        updated.map((s) => s.start).join(",")
-      );
-      form.setValue(
-        "endTime",
-        updated.map((s) => s.end).join(",")
-      );
+      // Deselect if clicked again
+      setSelectedSlots(selectedSlots.filter((s) => s.start !== slot.start));
     } else {
-      // Add slot
-      const updated = [...selectedSlots, slot];
-      setSelectedSlots(updated);
-      form.setValue(
-        "startTime",
-        updated.map((s) => s.start).join(",")
-      );
-      form.setValue(
-        "endTime",
-        updated.map((s) => s.end).join(",")
-      );
+      // Add to selected slots
+      setSelectedSlots([...selectedSlots, slot]);
     }
 
     form.clearErrors("startTime");
