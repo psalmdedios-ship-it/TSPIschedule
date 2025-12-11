@@ -26,8 +26,8 @@ const bookingSchema = z.object({
   department: z.string().min(2, "Department is required"),
   meetingTitle: z.string().min(3, "Meeting title must be at least 3 characters"),
   notes: z.string().optional(),
-  startTime: z.string().min(1, "Please select a time slot"),
-  endTime: z.string().min(1, "Please select a time slot"),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
 });
 
 type BookingFormData = z.infer<typeof bookingSchema>;
@@ -78,7 +78,6 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
 
     setIsSubmitting(true);
 
-    // Prepare data with selected slots
     const bookingData: BookingFormData = {
       ...data,
       startTime: selectedSlots.map((s) => s.start).join(","),
@@ -96,7 +95,6 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   const dateStr = format(date, "yyyy-MM-dd");
 
   const isSlotOccupied = (startTime: string, endTime: string) => {
-    // Only check already booked slots
     return bookings.some((booking) => {
       if (booking.date !== dateStr) return false;
       const bookingStart = booking.startTime;
@@ -110,15 +108,11 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   };
 
   const handleTimeSlotSelect = (slot: { start: string; end: string }) => {
-    const exists = selectedSlots.find(
-      (s) => s.start === slot.start && s.end === slot.end
-    );
+    const exists = selectedSlots.find((s) => s.start === slot.start && s.end === slot.end);
 
     if (exists) {
-      // Deselect if clicked again
       setSelectedSlots(selectedSlots.filter((s) => s.start !== slot.start));
     } else {
-      // Add to selected slots
       setSelectedSlots([...selectedSlots, slot]);
     }
 
@@ -153,9 +147,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {TIME_SLOTS.map((slot) => {
               const occupied = isSlotOccupied(slot.start, slot.end);
-              const isSelected = selectedSlots.some(
-                (s) => s.start === slot.start && s.end === slot.end
-              );
+              const isSelected = selectedSlots.some((s) => s.start === slot.start && s.end === slot.end);
 
               return (
                 <button
