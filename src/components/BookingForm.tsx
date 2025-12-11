@@ -81,18 +81,20 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   const dateStr = format(date, "yyyy-MM-dd");
 
   const isSlotOccupied = (startTime: string, endTime: string) => {
-    return bookings.some((booking) => {
-      if (booking.date !== dateStr) return false;
-
-      const bookingStart = booking.startTime;
-      const bookingEnd = booking.endTime;
-
-      return (
-        (startTime >= bookingStart && startTime < bookingEnd) ||
-        (endTime > bookingStart && endTime <= bookingEnd) ||
-        (startTime <= bookingStart && endTime >= bookingEnd)
-      );
-    });
+    // Slot is occupied if already booked OR already selected in this form
+    return (
+      bookings.some((booking) => {
+        if (booking.date !== dateStr) return false;
+        const bookingStart = booking.startTime;
+        const bookingEnd = booking.endTime;
+        return (
+          (startTime >= bookingStart && startTime < bookingEnd) ||
+          (endTime > bookingStart && endTime <= bookingEnd) ||
+          (startTime <= bookingStart && endTime >= bookingEnd)
+        );
+      }) ||
+      selectedSlots.some((s) => s.start === startTime && s.end === endTime)
+    );
   };
 
   const handleTimeSlotSelect = (slot: { start: string; end: string }) => {
