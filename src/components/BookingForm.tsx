@@ -54,7 +54,7 @@ const TIME_SLOTS = [
 
 export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
+  const [selectedSlots, setSelectedSlots] = useState<{ start: string; end: string }[]>([]);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -74,7 +74,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
     await onSubmit(data);
     setIsSubmitting(false);
     form.reset();
-    setSelectedSlot(null);
+    setSelectedSlots([]);
   };
 
   const room = ROOMS.find((r) => r.id === roomId);
@@ -96,9 +96,38 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   };
 
   const handleTimeSlotSelect = (slot: { start: string; end: string }) => {
-    setSelectedSlot(slot);
-    form.setValue("startTime", slot.start);
-    form.setValue("endTime", slot.end);
+    const exists = selectedSlots.find(
+      (s) => s.start === slot.start && s.end === slot.end
+    );
+
+    if (exists) {
+      // Deselect slot if already selected
+      const updated = selectedSlots.filter(
+        (s) => s.start !== slot.start || s.end !== slot.end
+      );
+      setSelectedSlots(updated);
+      form.setValue(
+        "startTime",
+        updated.map((s) => s.start).join(",")
+      );
+      form.setValue(
+        "endTime",
+        updated.map((s) => s.end).join(",")
+      );
+    } else {
+      // Add slot
+      const updated = [...selectedSlots, slot];
+      setSelectedSlots(updated);
+      form.setValue(
+        "startTime",
+        updated.map((s) => s.start).join(",")
+      );
+      form.setValue(
+        "endTime",
+        updated.map((s) => s.end).join(",")
+      );
+    }
+
     form.clearErrors("startTime");
     form.clearErrors("endTime");
   };
@@ -130,7 +159,10 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {TIME_SLOTS.map((slot) => {
               const occupied = isSlotOccupied(slot.start, slot.end);
-              const isSelected = selectedSlot?.start === slot.start && selectedSlot?.end === slot.end;
+              const isSelected = selectedSlots.some(
+                (s) => s.start === slot.start && s.end === slot.end
+              );
+
               return (
                 <button
                   key={slot.start}
@@ -141,10 +173,10 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                     "p-3 rounded-lg border text-sm font-medium transition-all",
                     occupied &&
                       "bg-destructive/10 border-destructive/50 text-destructive cursor-not-allowed",
-                    !occupied &&
-                      !isSelected &&
+                    !occupied && !isSelected &&
                       "bg-card border-border hover:border-primary hover:bg-primary/5 cursor-pointer",
-                    isSelected && "bg-primary text-primary-foreground border-primary"
+                    isSelected &&
+                      "bg-primary text-primary-foreground border-primary"
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -250,7 +282,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                 variant="outline"
                 onClick={() => {
                   form.reset();
-                  setSelectedSlot(null);
+                  setSelectedSlots([]);
                 }}
                 className="flex-1"
               >
