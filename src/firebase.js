@@ -1,18 +1,18 @@
+// src/firebase.ts
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDZdBaa5iRbQJpiVk0Y50dVeIQFNxqLbto",
-  authDomain: "tspicon-3a245.firebaseapp.com",
-  projectId: "tspicon-3a245",
-  storageBucket: "tspicon-3a245.appspot.com",
-  messagingSenderId: "105374508296",
-  appId: "1:105374508296:web:9d3b592fc00c2e43cb38bd"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export Firestore database
+// Export Firestore
 export const db = getFirestore(app);
-console.log(db);
