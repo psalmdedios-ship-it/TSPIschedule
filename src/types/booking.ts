@@ -22,20 +22,20 @@ export interface Room {
 export const ROOMS: Room[] = [
   {
     id: "tspi-east",
-    name: "TSPI East Conference Room",
-    description: "Main conference room with video conferencing",
+    name: "TSPI East Meeting Room",
+    description: "",
     capacity: 12,
   },
   {
     id: "powerchina-east",
-    name: "East PowerChina Conference Room",
-    description: "Executive meeting space",
+    name: "East PowerChina Meeting Room",
+    description: "",
     capacity: 8,
   },
   {
     id: "tspi-bess",
-    name: "TSPI BESS Conference Room",
-    description: "Technical discussion room",
+    name: "TSPI BESS Meeting Room",
+    description: "",
     capacity: 10,
   },
 ];
