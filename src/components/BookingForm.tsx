@@ -19,34 +19,6 @@ import { Booking, ROOMS } from "@/types/booking";
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-/**
- * Schema with a final guard to ensure start < end
- * (time conflict is checked again on submit below)
- */
-const bookingSchema = z
-  .object({
-    name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Invalid email address"),
-    department: z.string().min(2, "Department is required"),
-    meetingTitle: z.string().min(3, "Meeting title must be at least 3 characters"),
-    notes: z.string().optional(),
-    startTime: z.string().min(1, "Please select a time slot"),
-    endTime: z.string().min(1, "Please select a time slot"),
-  })
-  .refine((d) => d.startTime < d.endTime, {
-    message: "End time must be after start time",
-    path: ["endTime"],
-  });
-
-export type BookingFormData = z.infer<typeof bookingSchema>;
-
-interface BookingFormProps {
-  onSubmit: (data: BookingFormData) => Promise<void> | void;
-  roomId: string;
-  date: Date;
-  bookings: Booking[];
-}
-
 const TIME_SLOTS = [
   { start: "08:00", end: "09:00", label: "8:00 AM - 9:00 AM" },
   { start: "09:00", end: "10:00", label: "9:00 AM - 10:00 AM" },
@@ -60,9 +32,26 @@ const TIME_SLOTS = [
   { start: "17:00", end: "18:00", label: "5:00 PM - 6:00 PM" },
 ];
 
+const bookingSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  department: z.string().min(2, "Department is required"),
+  meetingTitle: z.string().min(3, "Meeting title must be at least 3 characters"),
+  notes: z.string().optional(),
+  slots: z.array(z.object({ start: z.string(), end: z.string() })).min(1, "Please select at least one time slot"),
+});
+
+type BookingFormData = z.infer<typeof bookingSchema>;
+
+interface BookingFormProps {
+  onSubmit: (data: BookingFormData) => Promise<void> | void;
+  roomId: string;
+  date: Date;
+  bookings: Booking[];
+}
+
 export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<{ start: string; end: string } | null>(null);
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingSchema),
@@ -72,43 +61,29 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
       department: "",
       meetingTitle: "",
       notes: "",
-      startTime: "",
-      endTime: "",
+      slots: [],
     },
   });
 
   const room = ROOMS.find((r) => r.id === roomId);
   const dateStr = format(date, "yyyy-MM-dd");
 
-  /**
-   * Robust overlap check
-   * Prevents booking the same time twice (or any overlap)
-   */
-  const getOccupiedCount = (startTime: string, endTime: string) => {
-    return bookings.filter((b) => {
-      if (b.date !== dateStr) return false;
-      return startTime < b.endTime && endTime > b.startTime;
-    }).length;
-  };
-
-  const isSlotOccupied = (startTime: string, endTime: string) => {
-    return getOccupiedCount(startTime, endTime) > 0;
+  const isSlotOccupied = (slot: { start: string; end: string }) => {
+    return bookings.some(b => b.date === dateStr && slot.start < b.endTime && slot.end > b.startTime);
   };
 
   const handleTimeSlotSelect = (slot: { start: string; end: string }) => {
-    // allow selecting even if occupied
-    setSelectedSlot(slot);
-    form.setValue("startTime", slot.start, { shouldValidate: true });
-    form.setValue("endTime", slot.end, { shouldValidate: true });
-    form.clearErrors(["startTime", "endTime"]);
+    const current = form.getValues("slots");
+    const exists = current.some(s => s.start === slot.start && s.end === slot.end);
+    const updated = exists ? current.filter(s => !(s.start === slot.start && s.end === slot.end)) : [...current, slot];
+    form.setValue("slots", updated, { shouldValidate: true });
   };
 
   const handleSubmit = async (data: BookingFormData) => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
       await onSubmit(data);
       form.reset();
-      setSelectedSlot(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -136,14 +111,12 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
         <div>
           <div className="flex items-center gap-2 mb-4">
             <Clock className="w-5 h-5 text-muted-foreground" />
-            <h3 className="font-semibold">Select Time Slot</h3>
+            <h3 className="font-semibold">Select Time Slot(s)</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {TIME_SLOTS.map((slot) => {
-              const occupiedCount = getOccupiedCount(slot.start, slot.end);
-              const isSelected =
-                selectedSlot?.start === slot.start && selectedSlot?.end === slot.end;
-
+            {TIME_SLOTS.map(slot => {
+              const occupied = isSlotOccupied(slot);
+              const selected = form.watch("slots").some(s => s.start === slot.start && s.end === slot.end);
               return (
                 <button
                   key={`${slot.start}-${slot.end}`}
@@ -151,125 +124,67 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                   onClick={() => handleTimeSlotSelect(slot)}
                   className={cn(
                     "p-3 rounded-lg border text-sm font-medium transition-all",
-                    occupiedCount > 0 &&
-                      "bg-destructive/10 border-destructive/50 text-destructive",
-                    isSelected && "bg-primary text-primary-foreground border-primary"
+                    occupied && "bg-destructive/10 border-destructive/50 text-destructive",
+                    selected && "bg-primary text-primary-foreground border-primary"
                   )}
                 >
-                  <div className="flex items-center justify-between">
-                    <span>{slot.label}</span>
-                    {occupiedCount > 0 && (
-                      <span className="text-xs bg-destructive text-destructive-foreground px-2 py-1 rounded">
-                        Occupied ({occupiedCount})
-                      </span>
-                    )}
-                  </div>
+                  {slot.label} {occupied && <span className="text-xs">(Occupied)</span>}
                 </button>
               );
             })}
           </div>
-          {form.formState.errors.startTime && (
-            <p className="text-sm text-destructive mt-2">
-              {form.formState.errors.startTime.message}
-            </p>
-          )}
+          {form.formState.errors.slots && <p className="text-sm text-destructive mt-2">{form.formState.errors.slots.message}</p>}
         </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="john.doe@tspi.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl><Input type="email" placeholder="john.doe@tspi.com" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Engineering" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="meetingTitle"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meeting Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Team Standup" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
+              <FormField control={form.control} name="department" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Any additional information..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
+                  <FormLabel>Department</FormLabel>
+                  <FormControl><Input placeholder="Engineering" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
+              )} />
+
+              <FormField control={form.control} name="meetingTitle" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Meeting Title</FormLabel>
+                  <FormControl><Input placeholder="Team Standup" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+
+            <FormField control={form.control} name="notes" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Notes (Optional)</FormLabel>
+                <FormControl><Textarea placeholder="Any additional information..." className="resize-none" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <div className="flex gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  form.reset();
-                  setSelectedSlot(null);
-                }}
-                className="flex-1"
-              >
-                Clear Form
-              </Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? "Booking..." : "Confirm Booking"}
-              </Button>
+              <Button type="button" variant="outline" onClick={() => form.reset()} className="flex-1">Clear Form</Button>
+              <Button type="submit" disabled={isSubmitting} className="flex-1">{isSubmitting ? "Booking..." : "Confirm Booking"}</Button>
             </div>
           </form>
         </Form>
