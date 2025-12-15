@@ -59,12 +59,21 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
 
   // Conflict check function
   const checkConflict = (start: string, end: string) => {
+    if (!start || !end) return false; // don't check if times are empty
+
     const startDateTime = parse(`${dateStr} ${start}`, "yyyy-MM-dd HH:mm", new Date());
     const endDateTime = parse(`${dateStr} ${end}`, "yyyy-MM-dd HH:mm", new Date());
 
+    if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) return false;
+
     return bookings.some((b) => {
+      if (!b.startTime || !b.endTime) return false;
+
       const bStart = parse(`${dateStr} ${b.startTime}`, "yyyy-MM-dd HH:mm", new Date());
       const bEnd = parse(`${dateStr} ${b.endTime}`, "yyyy-MM-dd HH:mm", new Date());
+
+      if (isNaN(bStart.getTime()) || isNaN(bEnd.getTime())) return false;
+
       return startDateTime < bEnd && endDateTime > bStart;
     });
   };
