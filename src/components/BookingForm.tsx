@@ -41,7 +41,7 @@ const bookingSchema = z.object({
   slots: z.array(z.object({ start: z.string(), end: z.string() })).min(1, "Please select at least one time slot"),
 });
 
-type BookingFormData = z.infer<typeof bookingSchema>;
+export type BookingFormData = z.infer<typeof bookingSchema>;
 
 interface BookingFormProps {
   onSubmit: (data: BookingFormData) => Promise<void> | void;
@@ -65,14 +65,16 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
     },
   });
 
-  const room = ROOMS.find((r) => r.id === roomId);
+  const room = ROOMS.find(r => r.id === roomId);
   const dateStr = format(date, "yyyy-MM-dd");
 
   const isSlotOccupied = (slot: { start: string; end: string }) => {
-    return bookings.some(b => b.date === dateStr && slot.start < b.endTime && slot.end > b.startTime);
+    return bookings.some(b => 
+      b.date === dateStr && slot.start < b.endTime && slot.end > b.startTime
+    );
   };
 
-  const handleTimeSlotSelect = (slot: { start: string; end: string }) => {
+  const handleSlotToggle = (slot: { start: string; end: string }) => {
     const current = form.getValues("slots");
     const exists = current.some(s => s.start === slot.start && s.end === slot.end);
     const updated = exists ? current.filter(s => !(s.start === slot.start && s.end === slot.end)) : [...current, slot];
@@ -84,6 +86,9 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
     try {
       await onSubmit(data);
       form.reset();
+    } catch (error) {
+      console.error("Booking failed:", error);
+      alert("Booking failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -92,19 +97,15 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   return (
     <Card className="p-6">
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-bold mb-2">Book Conference Room</h2>
-          <div className="bg-muted p-4 rounded-lg">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Room:</span>
-                <p className="font-semibold">{room?.name}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Date:</span>
-                <p className="font-semibold">{format(date, "PPP")}</p>
-              </div>
-            </div>
+        <h2 className="text-2xl font-bold">Book Conference Room</h2>
+        <div className="bg-muted p-4 rounded-lg grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-muted-foreground">Room:</span>
+            <p className="font-semibold">{room?.name}</p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Date:</span>
+            <p className="font-semibold">{format(date, "PPP")}</p>
           </div>
         </div>
 
@@ -121,10 +122,10 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                 <button
                   key={`${slot.start}-${slot.end}`}
                   type="button"
-                  onClick={() => handleTimeSlotSelect(slot)}
+                  onClick={() => handleSlotToggle(slot)}
                   className={cn(
                     "p-3 rounded-lg border text-sm font-medium transition-all",
-                    occupied && "bg-destructive/10 border-destructive/50 text-destructive",
+                    occupied && !selected && "bg-destructive/10 border-destructive/50 text-destructive",
                     selected && "bg-primary text-primary-foreground border-primary"
                   )}
                 >
@@ -142,7 +143,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
               <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Name</FormLabel>
-                  <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                  <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -150,7 +151,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
               <FormField control={form.control} name="email" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Email</FormLabel>
-                  <FormControl><Input type="email" placeholder="john.doe@tspi.com" {...field} /></FormControl>
+                  <FormControl><Input type="email" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -160,15 +161,14 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
               <FormField control={form.control} name="department" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Department</FormLabel>
-                  <FormControl><Input placeholder="Engineering" {...field} /></FormControl>
+                  <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
-
               <FormField control={form.control} name="meetingTitle" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Meeting Title</FormLabel>
-                  <FormControl><Input placeholder="Team Standup" {...field} /></FormControl>
+                  <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )} />
@@ -177,7 +177,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
                 <FormLabel>Notes (Optional)</FormLabel>
-                <FormControl><Textarea placeholder="Any additional information..." className="resize-none" {...field} /></FormControl>
+                <FormControl><Textarea {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />
