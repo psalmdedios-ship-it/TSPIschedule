@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format, isAfter, parse } from "date-fns";
+import { format, parse, isAfter } from "date-fns";
+
 import {
   Form,
   FormControl,
@@ -16,7 +17,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Booking, ROOMS } from "@/types/booking";
-import { cn } from "@/lib/utils";
 
 const bookingSchema = z.object({
   name: z.string().min(2),
@@ -24,24 +24,28 @@ const bookingSchema = z.object({
   department: z.string().min(2),
   meetingTitle: z.string().min(3),
   notes: z.string().optional(),
-  startTime: z.string().min(5, "Start time is required"),
-  endTime: z.string().min(5, "End time is required"),
+  startTime: z.string().min(1, "Start time is required"),
+  endTime: z.string().min(1, "End time is required"),
 });
 
-export type BookingFormData = z.infer<typeof bookingSchema>;
+type BookingFormValues = z.infer<typeof bookingSchema>;
 
 interface BookingFormProps {
-  onSubmit: (data: BookingFormData) => Promise<void> | void;
+  onSubmit: (data: any) => Promise<void> | void;
   roomId: string;
   date: Date;
   bookings: Booking[];
 }
 
-export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormProps) => {
+export const BookingForm = ({
+  onSubmit,
+  roomId,
+  date,
+}: BookingFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [timeError, setTimeError] = useState("");
 
-  const form = useForm<BookingFormData>({
+  const form = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema),
     defaultValues: {
       name: "",
@@ -57,51 +61,39 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   const room = ROOMS.find((r) => r.id === roomId);
   const dateStr = format(date, "yyyy-MM-dd");
 
-  // Conflict check function
-  const checkConflict = (start: string, end: string) => {
-    if (!start || !end) return false; // don't check if times are empty
-
-    const startDateTime = parse(`${dateStr} ${start}`, "yyyy-MM-dd HH:mm", new Date());
-    const endDateTime = parse(`${dateStr} ${end}`, "yyyy-MM-dd HH:mm", new Date());
-
-    if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) return false;
-
-    return bookings.some((b) => {
-      if (!b.startTime || !b.endTime) return false;
-
-      const bStart = parse(`${dateStr} ${b.startTime}`, "yyyy-MM-dd HH:mm", new Date());
-      const bEnd = parse(`${dateStr} ${b.endTime}`, "yyyy-MM-dd HH:mm", new Date());
-
-      if (isNaN(bStart.getTime()) || isNaN(bEnd.getTime())) return false;
-
-      return startDateTime < bEnd && endDateTime > bStart;
-    });
-  };
-
-  const handleSubmit = async (data: BookingFormData) => {
-    const { startTime, endTime } = data;
+  const handleSubmit = async (values: BookingFormValues) => {
     setTimeError("");
 
-    const start = parse(`${dateStr} ${startTime}`, "yyyy-MM-dd HH:mm", new Date());
-    const end = parse(`${dateStr} ${endTime}`, "yyyy-MM-dd HH:mm", new Date());
+    const start = parse(
+      `${dateStr} ${values.startTime}`,
+      "yyyy-MM-dd HH:mm",
+      new Date()
+    );
+    const end = parse(
+      `${dateStr} ${values.endTime}`,
+      "yyyy-MM-dd HH:mm",
+      new Date()
+    );
 
-    if (isAfter(start, end)) {
+    if (isAfter(start, end) || start.getTime() === end.getTime()) {
       setTimeError("Start time must be before end time");
       return;
     }
 
-    if (checkConflict(startTime, endTime)) {
-      setTimeError("This time span is already occupied!");
-      return;
-    }
-
     setIsSubmitting(true);
+
     try {
-      await onSubmit(data);
+      await onSubmit({
+        ...values,
+        slots: [
+          {
+            start: values.startTime,
+            end: values.endTime,
+          },
+        ],
+      });
+
       form.reset();
-    } catch (error) {
-      alert("Booking failed. Please try again.");
-      console.error(error);
     } finally {
       setIsSubmitting(false);
     }
@@ -114,76 +106,72 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
 
         <div className="bg-muted p-4 rounded-lg grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="text-muted-foreground">Room:</span>
+            <span className="text-muted-foreground">Room</span>
             <p className="font-semibold">{room?.name}</p>
           </div>
           <div>
-            <span className="text-muted-foreground">Date:</span>
+            <span className="text-muted-foreground">Date</span>
             <p className="font-semibold">{format(date, "PPP")}</p>
           </div>
         </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input type="email" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="department"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Department</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name="department"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Department</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="meetingTitle"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Meeting Title</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="meetingTitle"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Meeting Title</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -194,26 +182,20 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                   <FormControl>
                     <Textarea {...field} />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="startTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start Time (HH:mm)</FormLabel>
+                    <FormLabel>Start Time</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="time"
-                        className={cn(timeError && "border-destructive")}
-                      />
+                      <Input type="time" {...field} />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -223,35 +205,22 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                 name="endTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Time (HH:mm)</FormLabel>
+                    <FormLabel>End Time</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        type="time"
-                        className={cn(timeError && "border-destructive")}
-                      />
+                      <Input type="time" {...field} />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
 
-            {timeError && <p className="text-sm text-destructive">{timeError}</p>}
+            {timeError && (
+              <p className="text-sm text-destructive">{timeError}</p>
+            )}
 
-            <div className="flex gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => form.reset()}
-                className="flex-1"
-              >
-                Clear Form
-              </Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1">
-                {isSubmitting ? "Booking..." : "Confirm Booking"}
-              </Button>
-            </div>
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? "Booking..." : "Confirm Booking"}
+            </Button>
           </form>
         </Form>
       </div>
