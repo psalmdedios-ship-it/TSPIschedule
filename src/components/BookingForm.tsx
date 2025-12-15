@@ -15,25 +15,33 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Booking } from "@/types/booking";
-import { ROOMS } from "@/types/booking";
+import { Booking, ROOMS } from "@/types/booking";
 import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const bookingSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  department: z.string().min(2, "Department is required"),
-  meetingTitle: z.string().min(3, "Meeting title must be at least 3 characters"),
-  notes: z.string().optional(),
-  startTime: z.string().min(1, "Please select a time slot"),
-  endTime: z.string().min(1, "Please select a time slot"),
-});
+/**
+ * Schema with a final guard to ensure start < end
+ * (time conflict is checked again on submit below)
+ */
+const bookingSchema = z
+  .object({
+    name: z.string().min(2, "Name must be at least 2 characters"),
+    email: z.string().email("Invalid email address"),
+    department: z.string().min(2, "Department is required"),
+    meetingTitle: z.string().min(3, "Meeting title must be at least 3 characters"),
+    notes: z.string().optional(),
+    startTime: z.string().min(1, "Please select a time slot"),
+    endTime: z.string().min(1, "Please select a time slot"),
+  })
+  .refine((d) => d.startTime < d.endTime, {
+    message: "End time must be after start time",
+    path: ["endTime"],
+  });
 
-type BookingFormData = z.infer<typeof bookingSchema>;
+export type BookingFormData = z.infer<typeof bookingSchema>;
 
 interface BookingFormProps {
-  onSubmit: (data: BookingFormData) => void;
+  onSubmit: (data: BookingFormData) => Promise<void> | void;
   roomId: string;
   date: Date;
   bookings: Booking[];
@@ -69,38 +77,41 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
     },
   });
 
-  const handleSubmit = async (data: BookingFormData) => {
-    setIsSubmitting(true);
-    await onSubmit(data);
-    setIsSubmitting(false);
-    form.reset();
-    setSelectedSlot(null);
-  };
-
   const room = ROOMS.find((r) => r.id === roomId);
   const dateStr = format(date, "yyyy-MM-dd");
 
+  /**
+   * Robust overlap check
+   * Prevents booking the same time twice (or any overlap)
+   */
+  const getOccupiedCount = (startTime: string, endTime: string) => {
+    return bookings.filter((b) => {
+      if (b.date !== dateStr) return false;
+      return startTime < b.endTime && endTime > b.startTime;
+    }).length;
+  };
+
   const isSlotOccupied = (startTime: string, endTime: string) => {
-    return bookings.some((booking) => {
-      if (booking.date !== dateStr) return false;
-
-      const bookingStart = booking.startTime;
-      const bookingEnd = booking.endTime;
-
-      return (
-        (startTime >= bookingStart && startTime < bookingEnd) ||
-        (endTime > bookingStart && endTime <= bookingEnd) ||
-        (startTime <= bookingStart && endTime >= bookingEnd)
-      );
-    });
+    return getOccupiedCount(startTime, endTime) > 0;
   };
 
   const handleTimeSlotSelect = (slot: { start: string; end: string }) => {
+    // allow selecting even if occupied
     setSelectedSlot(slot);
-    form.setValue("startTime", slot.start);
-    form.setValue("endTime", slot.end);
-    form.clearErrors("startTime");
-    form.clearErrors("endTime");
+    form.setValue("startTime", slot.start, { shouldValidate: true });
+    form.setValue("endTime", slot.end, { shouldValidate: true });
+    form.clearErrors(["startTime", "endTime"]);
+  };
+
+  const handleSubmit = async (data: BookingFormData) => {
+    try {
+      setIsSubmitting(true);
+      await onSubmit(data);
+      form.reset();
+      setSelectedSlot(null);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -129,29 +140,27 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {TIME_SLOTS.map((slot) => {
-              const occupied = isSlotOccupied(slot.start, slot.end);
-              const isSelected = selectedSlot?.start === slot.start && selectedSlot?.end === slot.end;
+              const occupiedCount = getOccupiedCount(slot.start, slot.end);
+              const isSelected =
+                selectedSlot?.start === slot.start && selectedSlot?.end === slot.end;
+
               return (
                 <button
-                  key={slot.start}
+                  key={`${slot.start}-${slot.end}`}
                   type="button"
-                  onClick={() => !occupied && handleTimeSlotSelect(slot)}
-                  disabled={occupied}
+                  onClick={() => handleTimeSlotSelect(slot)}
                   className={cn(
                     "p-3 rounded-lg border text-sm font-medium transition-all",
-                    occupied &&
-                      "bg-destructive/10 border-destructive/50 text-destructive cursor-not-allowed",
-                    !occupied &&
-                      !isSelected &&
-                      "bg-card border-border hover:border-primary hover:bg-primary/5 cursor-pointer",
+                    occupiedCount > 0 &&
+                      "bg-destructive/10 border-destructive/50 text-destructive",
                     isSelected && "bg-primary text-primary-foreground border-primary"
                   )}
                 >
                   <div className="flex items-center justify-between">
                     <span>{slot.label}</span>
-                    {occupied && (
+                    {occupiedCount > 0 && (
                       <span className="text-xs bg-destructive text-destructive-foreground px-2 py-1 rounded">
-                        Occupied
+                        Occupied ({occupiedCount})
                       </span>
                     )}
                   </div>
@@ -160,7 +169,9 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
             })}
           </div>
           {form.formState.errors.startTime && (
-            <p className="text-sm text-destructive mt-2">{form.formState.errors.startTime.message}</p>
+            <p className="text-sm text-destructive mt-2">
+              {form.formState.errors.startTime.message}
+            </p>
           )}
         </div>
 
