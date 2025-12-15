@@ -26,36 +26,48 @@ const Index = () => {
   };
 
   const handleBookingSubmit = async (formData: any) => {
-    // Check for conflicts
-    const hasConflict = await bookingAPI.checkConflict(
-      selectedRoomId,
-      format(selectedDate, "yyyy-MM-dd"),
-      formData.startTime,
-      formData.endTime
-    );
-
-    if (hasConflict) {
+    if (!formData.slots || formData.slots.length === 0) {
       toast({
-        title: "Booking Conflict",
-        description: "This time slot is already occupied. Please choose another time.",
+        title: "No Slot Selected",
+        description: "Please select at least one time slot.",
         variant: "destructive",
       });
       return;
     }
 
-    // Create booking
     try {
-      await bookingAPI.createBooking({
-        name: formData.name,
-        email: formData.email,
-        department: formData.department,
-        meetingTitle: formData.meetingTitle,
-        notes: formData.notes,
-        roomId: selectedRoomId,
-        date: format(selectedDate, "yyyy-MM-dd"),
-        startTime: formData.startTime,
-        endTime: formData.endTime,
-      });
+      for (const slot of formData.slots) {
+        const hasConflict = await bookingAPI.checkConflict(
+          selectedRoomId,
+          format(selectedDate, "yyyy-MM-dd"),
+          slot.start,
+          slot.end
+        );
+
+        if (hasConflict) {
+          toast({
+            title: "Booking Conflict",
+            description: `Time slot ${slot.start} - ${slot.end} is already occupied.`,
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Create booking for each slot
+      for (const slot of formData.slots) {
+        await bookingAPI.createBooking({
+          name: formData.name,
+          email: formData.email,
+          department: formData.department,
+          meetingTitle: formData.meetingTitle,
+          notes: formData.notes,
+          roomId: selectedRoomId,
+          date: format(selectedDate, "yyyy-MM-dd"),
+          startTime: slot.start,
+          endTime: slot.end,
+        });
+      }
 
       toast({
         title: "Booking Confirmed",
@@ -64,6 +76,7 @@ const Index = () => {
 
       loadBookings();
     } catch (error) {
+      console.error("Booking failed:", error);
       toast({
         title: "Booking Failed",
         description: "There was an error creating your booking. Please try again.",
