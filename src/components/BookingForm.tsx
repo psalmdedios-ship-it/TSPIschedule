@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format, isBefore, isAfter, parse } from "date-fns";
+import { format, isAfter, parse } from "date-fns";
 import {
   Form,
   FormControl,
@@ -16,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Booking, ROOMS } from "@/types/booking";
-import { Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const bookingSchema = z.object({
@@ -58,13 +57,15 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   const room = ROOMS.find((r) => r.id === roomId);
   const dateStr = format(date, "yyyy-MM-dd");
 
+  // Conflict check function
   const checkConflict = (start: string, end: string) => {
-    const s = parse(start, "HH:mm", new Date());
-    const e = parse(end, "HH:mm", new Date());
+    const startDateTime = parse(`${dateStr} ${start}`, "yyyy-MM-dd HH:mm", new Date());
+    const endDateTime = parse(`${dateStr} ${end}`, "yyyy-MM-dd HH:mm", new Date());
+
     return bookings.some((b) => {
-      const bStart = parse(b.startTime, "HH:mm", new Date());
-      const bEnd = parse(b.endTime, "HH:mm", new Date());
-      return s < bEnd && e > bStart;
+      const bStart = parse(`${dateStr} ${b.startTime}`, "yyyy-MM-dd HH:mm", new Date());
+      const bEnd = parse(`${dateStr} ${b.endTime}`, "yyyy-MM-dd HH:mm", new Date());
+      return startDateTime < bEnd && endDateTime > bStart;
     });
   };
 
@@ -72,7 +73,10 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
     const { startTime, endTime } = data;
     setTimeError("");
 
-    if (isAfter(parse(startTime, "HH:mm", new Date()), parse(endTime, "HH:mm", new Date()))) {
+    const start = parse(`${dateStr} ${startTime}`, "yyyy-MM-dd HH:mm", new Date());
+    const end = parse(`${dateStr} ${endTime}`, "yyyy-MM-dd HH:mm", new Date());
+
+    if (isAfter(start, end)) {
       setTimeError("Start time must be before end time");
       return;
     }
@@ -113,83 +117,126 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl><Input type="email" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="department" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Department</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="department"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Department</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <FormField control={form.control} name="meetingTitle" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Meeting Title</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="meetingTitle"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Meeting Title</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Notes (Optional)</FormLabel>
-                <FormControl><Textarea {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="startTime" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Start Time (HH:mm)</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type="time"
-                      className={cn(timeError && "border-destructive")}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="startTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Time (HH:mm)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="time"
+                        className={cn(timeError && "border-destructive")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-              <FormField control={form.control} name="endTime" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>End Time (HH:mm)</FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      type="time"
-                      className={cn(timeError && "border-destructive")}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
+              <FormField
+                control={form.control}
+                name="endTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Time (HH:mm)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="time"
+                        className={cn(timeError && "border-destructive")}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             {timeError && <p className="text-sm text-destructive">{timeError}</p>}
 
             <div className="flex gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => form.reset()} className="flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => form.reset()}
+                className="flex-1"
+              >
                 Clear Form
               </Button>
               <Button type="submit" disabled={isSubmitting} className="flex-1">
