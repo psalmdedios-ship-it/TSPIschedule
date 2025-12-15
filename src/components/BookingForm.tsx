@@ -38,7 +38,14 @@ const bookingSchema = z.object({
   department: z.string().min(2, "Department is required"),
   meetingTitle: z.string().min(3, "Meeting title must be at least 3 characters"),
   notes: z.string().optional(),
-  slots: z.array(z.object({ start: z.string(), end: z.string() })).min(1, "Please select at least one time slot"),
+  slots: z
+    .array(
+      z.object({
+        start: z.string(),
+        end: z.string(),
+      })
+    )
+    .min(1, "Please select at least one time slot"),
 });
 
 export type BookingFormData = z.infer<typeof bookingSchema>;
@@ -68,10 +75,9 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
   const room = ROOMS.find(r => r.id === roomId);
   const dateStr = format(date, "yyyy-MM-dd");
 
-  const isSlotOccupied = (slot: { start: string; end: string }) => {
-    return bookings.some(b => 
-      b.date === dateStr && slot.start < b.endTime && slot.end > b.startTime
-    );
+  // Returns how many bookings overlap with this slot
+  const getOccupiedCount = (slot: { start: string; end: string }) => {
+    return bookings.filter(b => b.date === dateStr && slot.start < b.endTime && slot.end > b.startTime).length;
   };
 
   const handleSlotToggle = (slot: { start: string; end: string }) => {
@@ -83,6 +89,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
 
   const handleSubmit = async (data: BookingFormData) => {
     setIsSubmitting(true);
+    console.log("Submitting booking:", data);
     try {
       await onSubmit(data);
       form.reset();
@@ -98,6 +105,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
     <Card className="p-6">
       <div className="space-y-6">
         <h2 className="text-2xl font-bold">Book Conference Room</h2>
+
         <div className="bg-muted p-4 rounded-lg grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Room:</span>
@@ -114,10 +122,12 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
             <Clock className="w-5 h-5 text-muted-foreground" />
             <h3 className="font-semibold">Select Time Slot(s)</h3>
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {TIME_SLOTS.map(slot => {
-              const occupied = isSlotOccupied(slot);
+              const occupiedCount = getOccupiedCount(slot);
               const selected = form.watch("slots").some(s => s.start === slot.start && s.end === slot.end);
+
               return (
                 <button
                   key={`${slot.start}-${slot.end}`}
@@ -125,16 +135,26 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                   onClick={() => handleSlotToggle(slot)}
                   className={cn(
                     "p-3 rounded-lg border text-sm font-medium transition-all",
-                    occupied && !selected && "bg-destructive/10 border-destructive/50 text-destructive",
+                    occupiedCount > 0 && !selected && "bg-destructive/10 border-destructive/50 text-destructive",
                     selected && "bg-primary text-primary-foreground border-primary"
                   )}
                 >
-                  {slot.label} {occupied && <span className="text-xs">(Occupied)</span>}
+                  <div className="flex items-center justify-between">
+                    <span>{slot.label}</span>
+                    {occupiedCount > 0 && (
+                      <span className="text-xs bg-destructive text-destructive-foreground px-2 py-1 rounded">
+                        Occupied ({occupiedCount})
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
           </div>
-          {form.formState.errors.slots && <p className="text-sm text-destructive mt-2">{form.formState.errors.slots.message}</p>}
+
+          {form.formState.errors.slots && (
+            <p className="text-sm text-destructive mt-2">{form.formState.errors.slots.message}</p>
+          )}
         </div>
 
         <Form {...form}>
@@ -165,6 +185,7 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
                   <FormMessage />
                 </FormItem>
               )} />
+
               <FormField control={form.control} name="meetingTitle" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Meeting Title</FormLabel>
@@ -183,8 +204,12 @@ export const BookingForm = ({ onSubmit, roomId, date, bookings }: BookingFormPro
             )} />
 
             <div className="flex gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => form.reset()} className="flex-1">Clear Form</Button>
-              <Button type="submit" disabled={isSubmitting} className="flex-1">{isSubmitting ? "Booking..." : "Confirm Booking"}</Button>
+              <Button type="button" variant="outline" onClick={() => form.reset()} className="flex-1">
+                Clear Form
+              </Button>
+              <Button type="submit" disabled={isSubmitting} className="flex-1">
+                {isSubmitting ? "Booking..." : "Confirm Booking"}
+              </Button>
             </div>
           </form>
         </Form>
