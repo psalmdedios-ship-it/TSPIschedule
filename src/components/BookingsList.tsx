@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import { Booking } from "@/types/booking";
 import { ROOMS } from "@/types/booking";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Clock, User, Building2, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface BookingsListProps {
   bookings: Booking[];
@@ -13,6 +14,45 @@ interface BookingsListProps {
 }
 
 export const BookingsList = ({ bookings, date, onDeleteBooking }: BookingsListProps) => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleLogin = () => {
+    if (username === "Admin" && password === "TSPI!!!!") {
+      setIsLoggedIn(true);
+    } else {
+      alert("Invalid username or password");
+    }
+  };
+
+  // If not logged in, show login form
+  if (!isLoggedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Card className="p-6 w-full max-w-sm">
+          <h2 className="text-2xl font-bold mb-4 text-center">Admin Login</h2>
+          <div className="space-y-4">
+            <Input
+              placeholder="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+            <Input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <Button className="w-full" onClick={handleLogin}>
+              Login
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   const dateStr = format(date, "yyyy-MM-dd");
   const dayBookings = bookings
     .filter((b) => b.date === dateStr)
