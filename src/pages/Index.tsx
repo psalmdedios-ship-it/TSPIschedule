@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { RoomSelector } from "@/components/RoomSelector";
@@ -9,6 +11,7 @@ import { bookingAPI } from "@/lib/bookingStorage";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RoomsProvider } from "@/context/RoomsContext";
 
 const Index = () => {
   const [selectedRoomId, setSelectedRoomId] = useState("tspi-east");
@@ -105,67 +108,69 @@ const Index = () => {
   const roomBookings = bookings.filter((b) => b.roomId === selectedRoomId);
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card shadow-sm">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <CalendarDays className="w-8 h-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">TSPI Conference Room Scheduler</h1>
-              <p className="text-muted-foreground">Book your meeting space with ease</p>
+    <RoomsProvider>
+      <div className="min-h-screen bg-background">
+        <header className="border-b bg-card shadow-sm">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <CalendarDays className="w-8 h-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold">TSPI Conference Room Scheduler</h1>
+                <p className="text-muted-foreground">Book your meeting space with ease</p>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          <section>
-            <h2 className="text-xl font-semibold mb-4">Select a Conference Room</h2>
-            <RoomSelector selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId} />
-          </section>
+        <main className="container mx-auto px-4 py-8">
+          <div className="space-y-8">
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Select a Conference Room</h2>
+              <RoomSelector selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId} />
+            </section>
 
-          <section>
-            <Tabs defaultValue="booking" className="w-full">
-              <TabsList className="grid w-full max-w-md grid-cols-2">
-                <TabsTrigger value="booking">New Booking</TabsTrigger>
-                <TabsTrigger value="bookings">View Bookings</TabsTrigger>
-              </TabsList>
+            <section>
+              <Tabs defaultValue="booking" className="w-full">
+                <TabsList className="grid w-full max-w-md grid-cols-2">
+                  <TabsTrigger value="booking">New Booking</TabsTrigger>
+                  <TabsTrigger value="bookings">View Bookings</TabsTrigger>
+                </TabsList>
 
-              <TabsContent value="booking" className="space-y-6 mt-6">
-                <Calendar
-                  selectedDate={selectedDate}
-                  onSelectDate={setSelectedDate}
-                  bookings={roomBookings}
-                />
-
-                <BookingForm
-                  onSubmit={handleBookingSubmit}
-                  roomId={selectedRoomId}
-                  date={selectedDate}
-                  bookings={roomBookings}
-                />
-              </TabsContent>
-
-              <TabsContent value="bookings" className="mt-6">
-                <div className="bg-card p-6 rounded-lg shadow-sm border">
-                  <h3 className="text-xl font-semibold mb-4">
-                    Bookings for {format(selectedDate, "MMMM d, yyyy")}
-                  </h3>
-                  <BookingsList
+                <TabsContent value="booking" className="space-y-6 mt-6">
+                  <Calendar
+                    selectedDate={selectedDate}
+                    onSelectDate={setSelectedDate}
                     bookings={roomBookings}
-                    date={selectedDate}
-                    onDeleteBooking={handleDeleteBooking}
                   />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </section>
-        </div>
-      </main>
-    </div>
+
+                  <BookingForm
+                    onSubmit={handleBookingSubmit}
+                    roomId={selectedRoomId}
+                    date={selectedDate}
+                    bookings={roomBookings}
+                  />
+                </TabsContent>
+
+                <TabsContent value="bookings" className="mt-6">
+                  <div className="bg-card p-6 rounded-lg shadow-sm border">
+                    <h3 className="text-xl font-semibold mb-4">
+                      Bookings for {format(selectedDate, "MMMM d, yyyy")}
+                    </h3>
+                    <BookingsList
+                      bookings={roomBookings}
+                      date={selectedDate}
+                      onDeleteBooking={handleDeleteBooking}
+                    />
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </section>
+          </div>
+        </main>
+      </div>
+    </RoomsProvider>
   );
 };
 

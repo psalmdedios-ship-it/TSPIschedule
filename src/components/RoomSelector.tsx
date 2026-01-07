@@ -1,6 +1,6 @@
 "use client";
 
-import { Room, ROOMS } from "@/types/booking";
+import { useRooms } from "@/context/RoomsContext.tsx";
 import {
   Select,
   SelectContent,
@@ -14,10 +14,9 @@ interface RoomSelectorProps {
   onSelectRoom: (roomId: string) => void;
 }
 
-export const RoomSelector = ({
-  selectedRoomId,
-  onSelectRoom,
-}: RoomSelectorProps) => {
+export const RoomSelector = ({ selectedRoomId, onSelectRoom }: RoomSelectorProps) => {
+  const { rooms } = useRooms();
+
   return (
     <div className="max-w-md">
       <Select value={selectedRoomId} onValueChange={onSelectRoom}>
@@ -25,7 +24,7 @@ export const RoomSelector = ({
           <SelectValue placeholder="Select meeting room" />
         </SelectTrigger>
         <SelectContent>
-          {ROOMS.map((room: Room) => (
+          {rooms.map((room) => (
             <SelectItem key={room.id} value={room.id}>
               {room.name}
             </SelectItem>

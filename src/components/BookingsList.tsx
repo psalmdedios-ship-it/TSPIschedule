@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { Booking, Room, ROOMS as DEFAULT_ROOMS } from "@/types/booking";
+import { Booking } from "@/types/booking";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Clock, User, Building2, Trash2, Plus, X } from "lucide-react";
+import { useRooms } from "@/context/RoomsContext.tsx";
 
 interface BookingsListProps {
   bookings: Booking[];
@@ -14,22 +15,16 @@ interface BookingsListProps {
   onDeleteBooking: (id: string) => void;
 }
 
-export const BookingsList = ({
-  bookings,
-  date,
-  onDeleteBooking,
-}: BookingsListProps) => {
-  /* ---------------- ADMIN LOGIN ---------------- */
+export const BookingsList = ({ bookings, date, onDeleteBooking }: BookingsListProps) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  /* ---------------- ROOMS STATE ---------------- */
-  const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
+  const { rooms, addRoom, deleteRoom } = useRooms();
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
 
-  /* ---------------- HANDLERS ---------------- */
+  /* ---------------- LOGIN ---------------- */
   const handleLogin = () => {
     if (username === "Admin" && password === "TSPI!!!!") {
       setIsLoggedIn(true);
@@ -38,27 +33,27 @@ export const BookingsList = ({
     }
   };
 
+  /* ---------------- ADD/DELETE ROOM ---------------- */
   const handleAddRoom = () => {
     if (!newRoomName.trim()) return;
 
-    const newRoom: Room = {
+    addRoom({
       id: crypto.randomUUID(),
       name: newRoomName,
-      description: "Added by admin", // Required
-    };
+      description: "Added by admin",
+    });
 
-    setRooms((prev) => [...prev, newRoom]);
     setNewRoomName("");
     setShowAddRoom(false);
   };
 
   const handleDeleteRoom = (roomId: string) => {
     const confirmed = confirm(
-      "Are you sure you want to delete this room? This will not delete bookings."
+      "Are you sure you want to delete this room? Existing bookings will show 'Unknown Room'."
     );
     if (!confirmed) return;
 
-    setRooms((prev) => prev.filter((r) => r.id !== roomId));
+    deleteRoom(roomId);
   };
 
   /* ---------------- LOGIN SCREEN ---------------- */
@@ -94,7 +89,7 @@ export const BookingsList = ({
     .filter((b) => b.date === dateStr)
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
-  /* ---------------- RENDER ---------------- */
+  /* ---------------- MAIN RENDER ---------------- */
   return (
     <div className="space-y-4">
       {/* ROOM MANAGEMENT */}
@@ -110,7 +105,6 @@ export const BookingsList = ({
           </Button>
         </div>
 
-        {/* ADD ROOM FORM */}
         {showAddRoom && (
           <div className="flex gap-2 mb-3">
             <Input
@@ -122,7 +116,6 @@ export const BookingsList = ({
           </div>
         )}
 
-        {/* LIST EXISTING ROOMS */}
         <div className="flex flex-col gap-2">
           {rooms.map((room) => (
             <div
