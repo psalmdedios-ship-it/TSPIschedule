@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ROOMS as DEFAULT_ROOMS, Room } from "@/types/booking";
+import { Room, ROOMS as DEFAULT_ROOMS } from "@/types/booking";
 import {
   Select,
   SelectContent,
@@ -23,26 +23,27 @@ export const RoomSelector = ({
   onSelectRoom,
 }: RoomSelectorProps) => {
   const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
+  const [showAddRoom, setShowAddRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState("");
-  const [isAdding, setIsAdding] = useState(false);
 
-  const addRoom = () => {
+  const handleAddRoom = () => {
     if (!newRoomName.trim()) return;
 
     const newRoom: Room = {
       id: crypto.randomUUID(),
       name: newRoomName,
+      description: "Added by admin", // ✅ REQUIRED
     };
 
     setRooms((prev) => [...prev, newRoom]);
     onSelectRoom(newRoom.id);
     setNewRoomName("");
-    setIsAdding(false);
+    setShowAddRoom(false);
   };
 
   return (
     <div className="space-y-3 max-w-md">
-      {/* Dropdown */}
+      {/* ROOM DROPDOWN */}
       <Select value={selectedRoomId} onValueChange={onSelectRoom}>
         <SelectTrigger>
           <SelectValue placeholder="Select meeting room" />
@@ -56,21 +57,21 @@ export const RoomSelector = ({
         </SelectContent>
       </Select>
 
-      {/* Add new room */}
-      {isAdding ? (
+      {/* ADD ROOM */}
+      {showAddRoom ? (
         <div className="flex gap-2">
           <Input
             placeholder="New room name"
             value={newRoomName}
             onChange={(e) => setNewRoomName(e.target.value)}
           />
-          <Button onClick={addRoom}>Add</Button>
+          <Button onClick={handleAddRoom}>Add</Button>
         </div>
       ) : (
         <Button
           variant="outline"
           className="w-full"
-          onClick={() => setIsAdding(true)}
+          onClick={() => setShowAddRoom(true)}
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Meeting Room
