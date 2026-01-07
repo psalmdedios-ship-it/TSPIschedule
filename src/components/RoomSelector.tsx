@@ -1,43 +1,81 @@
-import { ROOMS } from "@/types/booking";
-import { Card } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+"use client";
+
+import { useState } from "react";
+import { ROOMS as DEFAULT_ROOMS, Room } from "@/types/booking";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Plus } from "lucide-react";
 
 interface RoomSelectorProps {
   selectedRoomId: string;
   onSelectRoom: (roomId: string) => void;
 }
 
-export const RoomSelector = ({ selectedRoomId, onSelectRoom }: RoomSelectorProps) => {
+export const RoomSelector = ({
+  selectedRoomId,
+  onSelectRoom,
+}: RoomSelectorProps) => {
+  const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
+  const [newRoomName, setNewRoomName] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+
+  const addRoom = () => {
+    if (!newRoomName.trim()) return;
+
+    const newRoom: Room = {
+      id: crypto.randomUUID(),
+      name: newRoomName,
+    };
+
+    setRooms((prev) => [...prev, newRoom]);
+    onSelectRoom(newRoom.id);
+    setNewRoomName("");
+    setIsAdding(false);
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {ROOMS.map((room) => (
-        <Card
-          key={room.id}
-          className={cn(
-            "p-6 cursor-pointer transition-all hover:shadow-lg",
-            selectedRoomId === room.id
-              ? "border-primary bg-primary/5 shadow-md"
-              : "border-border hover:border-primary/50"
-          )}
-          onClick={() => onSelectRoom(room.id)}
+    <div className="space-y-3 max-w-md">
+      {/* Dropdown */}
+      <Select value={selectedRoomId} onValueChange={onSelectRoom}>
+        <SelectTrigger>
+          <SelectValue placeholder="Select meeting room" />
+        </SelectTrigger>
+        <SelectContent>
+          {rooms.map((room) => (
+            <SelectItem key={room.id} value={room.id}>
+              {room.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Add new room */}
+      {isAdding ? (
+        <div className="flex gap-2">
+          <Input
+            placeholder="New room name"
+            value={newRoomName}
+            onChange={(e) => setNewRoomName(e.target.value)}
+          />
+          <Button onClick={addRoom}>Add</Button>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={() => setIsAdding(true)}
         >
-          <div className="flex items-start space-x-4">
-            <div
-              className={cn(
-                "p-3 rounded-lg",
-                selectedRoomId === room.id ? "bg-primary text-primary-foreground" : "bg-muted"
-              )}
-            >
-              <Building2 className="w-6 h-6" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-lg mb-1">{room.name}</h3>
-              <p className="text-sm text-muted-foreground">{room.description}</p>
-            </div>
-          </div>
-        </Card>
-      ))}
+          <Plus className="w-4 h-4 mr-2" />
+          Add Meeting Room
+        </Button>
+      )}
     </div>
   );
 };
